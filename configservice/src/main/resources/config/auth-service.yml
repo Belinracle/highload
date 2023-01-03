@@ -1,0 +1,36 @@
+---
+spring:
+  cloud:
+    gcp:
+      sql:
+        enabled: false
+  liquibase:
+    url: r2dbc:postgresql://${POSTGRES_HOST:localhost}:${POSTGRES_PORT:5433}/auth_service
+  r2dbc:
+    host: ${POSTGRES_HOST:localhost}
+    port: ${POSTGRES_PORT:5433}
+    database: ${POSTGRES_DATABASE:auth_service}
+    username: postgres
+    password: postgres_password
+  jpa:
+    hibernate:
+      ddl-auto: none
+
+jwt:
+  prefix: "Bearer"
+  secret: "bibaboba"
+  header: "Authentication"
+  expiration: 300000
+
+refresh:
+  token:
+    duration:
+      ms: 600000
+
+user:
+  service:
+    app:
+      name: "${USER_SERVICE_APP_NAME:user-service}"
+    context:
+      path: "${USER_SERVICE_CONTEXT_PATH:/api/user}"
+

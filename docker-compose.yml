@@ -1,0 +1,144 @@
+version: '3.8'
+services:
+  portainer:
+    image: portainer/portainer-ce:latest
+    container_name: portainer
+    restart: unless-stopped
+    security_opt:
+      - no-new-privileges:true
+    volumes:
+      - /etc/localtime:/etc/localtime:ro
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+      - ./volumes/portainer-data:/data
+    ports:
+      - "9000:9000"
+  postgres_users:
+    image: postgres:14.5-alpine
+    environment:
+      POSTGRES_DB: users_service
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres_password
+    volumes:
+      - "./volumes/postgres_users:/var/lib/postgresql/data"
+    ports:
+      - "5432:5432"
+    restart: unless-stopped
+  postgres_auth:
+    image: postgres:14.5-alpine
+    environment:
+      POSTGRES_DB: auth_service
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres_password
+    volumes:
+      - "./volumes/postgres_auth:/var/lib/postgresql/data"
+    ports:
+      - "5433:5432"
+    restart: unless-stopped
+  postgres_file:
+    image: postgres:14.5-alpine
+    environment:
+      POSTGRES_DB: file_service
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres_password
+    volumes:
+      - "./volumes/postgres_file:/var/lib/postgresql/data"
+    ports:
+      - "5434:5432"
+    restart: unless-stopped
+  shared_lib:
+    container_name: shared_lib
+    image: shared_lib
+    build: ./feign_clients
+  eureka-server:
+    container_name: eureka-service
+    image: eurekaserviceimage
+    build: ./eurekaservice
+    ports:
+      - "8671:8671"
+  config-service:
+    image: configserviceimage
+    container_name: config-service
+    build: ./configservice
+    ports:
+      - "8762:8762"
+    environment:
+      PORT: 8762
+      EUREKA_ADDRESS: "eureka-server:8671"
+    depends_on:
+      - eureka-server
+  user-service:
+    image: userserviceimage
+    container_name: user-service
+    build: ./user-service
+    ports:
+      - "8081:8081"
+    environment:
+      PORT: 8081
+      EUREKA_ADDRESS: "eureka-server:8671"
+      CONFIG_URL: "config-service:8762"
+      POSTGRES_ADDRESS: "postgres_users:5432"
+    deploy:
+      restart_policy:
+        condition: on-failure
+        max_attempts: 3
+        delay: 3s
+    depends_on:
+      - config-service
+      - postgres_users
+  auth-service:
+    image: authserviceimage
+    container_name: auth-service
+    build: ./auth-service
+    ports:
+      - "8082:8082"
+    volumes:
+      - "./volumes/dependencies/:/root/.m2/"
+    environment:
+      PORT: 8082
+      EUREKA_ADDRESS: "eureka-server:8671"
+      CONFIG_URL: "config-service:8762"
+      POSTGRES_HOST: "postgres_auth"
+      POSTGRES_PORT: "5433"
+      POSTGRES_DATABASE: "auth_service"
+      USER_SERVICE_CONTEXT_PATH: "/api/user"
+      USER_SERVICE_APP_NAME: "user-service"
+    deploy:
+      restart_policy:
+        condition: on-failure
+        max_attempts: 5
+        delay: 3s
+    depends_on:
+      - postgres_users
+      - user-service
+      - config-service
+      - shared_lib
+  file_minio:
+    image: minio/minio
+    ports:
+      - "9010:9000"
+      - "9001:9001"
+    volumes:
+      - ./volumes/minio:/data
+    environment:
+      MINIO_ROOT_USER: minio_access_key
+      MINIO_ROOT_PASSWORD: minio_secret_key
+    command: server --console-address ":9001" /data
+  file-service:
+    image: fileserviceimage
+    container_name: file-service
+    build: ./file-service
+    ports:
+      - "8090:8090"
+    environment:
+      PORT: 8090
+      EUREKA_ADDRESS: "eureka-server:8671"
+      CONFIG_URL: "config-service:8762"
+      POSTGRES_ADDRESS: "postgres_users:5432"
+    deploy:
+      restart_policy:
+        condition: on-failure
+        max_attempts: 3
+        delay: 3s
+    depends_on:
+      - config-service
+      - postgres_users

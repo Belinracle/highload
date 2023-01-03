@@ -1,0 +1,26 @@
+---
+spring:
+  cloud:
+    gcp:
+      sql:
+        enabled: false
+  datasource:
+    url: jdbc:postgresql://postgres_file:5434/file_service
+    username: postgres
+    password: postgres_password
+    hikari:
+      maximumPoolSize: 5
+      connection-timeout: 20000
+    driver-class-name: org.postgresql.Driver
+  jpa:
+    hibernate:
+      ddl-auto: none
+minio:
+  access:
+    name: "minio_access_key"
+    secret: "minio_secret_key"
+  url: http://file_minio:9010
+  bucket:
+    name: "some_bucket"
+  default:
+    folder: "some_folder"

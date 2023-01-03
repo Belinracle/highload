@@ -1,0 +1,6 @@
+auth:
+  service:
+    app:
+      name: "auth-service"
+    context:
+      path: "/api/auth"

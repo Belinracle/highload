@@ -1,0 +1,24 @@
+spring:
+  application:
+    name: eureka-server
+
+server:
+  port: 8671
+
+eureka:
+  instance:
+    hostname: eureka-server
+    lease-expiration-duration-in-seconds: 30
+    lease-renewal-interval-in-seconds: 30
+    prefer-ip-address: true
+  client:
+    registerWithEureka: false
+    fetchRegistry: false
+    instance-info-replication-interval-seconds: 10
+    service-url:
+      defaultZone: http://eureka-server:8671/eureka
+  server:
+    enable-self-preservation: false
+    eviction-interval-timer-in-ms: 50000
+    wait-time-in-ms-when-sync-empty: 5
+    maxThreadsForPeerReplication: 0

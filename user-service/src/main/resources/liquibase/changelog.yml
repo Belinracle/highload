@@ -1,0 +1,17 @@
+databaseChangeLog:
+  - changeSet:
+      id: create users Table
+      author: belinracle
+      changes:
+        - sqlFile:
+            dbms: postgresql
+            path: initial/users_table.sql
+            relativeToChangelogFile: true
+  - changeSet:
+      id: create superadmin
+      author: belinracle
+      changes:
+        - sqlFile:
+            dbms: postgresql
+            path: initial/superadmin.sql
+            relativeToChangelogFile: true

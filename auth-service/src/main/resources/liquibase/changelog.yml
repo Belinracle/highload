@@ -1,0 +1,9 @@
+databaseChangeLog:
+  - changeSet:
+      id: create refreshToken Table
+      author: belinracle
+      changes:
+        - sqlFile:
+            dbms: postgresql
+            path: initial/refresh_token_table.sql
+            relativeToChangelogFile: true

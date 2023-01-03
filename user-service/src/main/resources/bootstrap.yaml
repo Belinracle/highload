@@ -1,0 +1,10 @@
+spring:
+  application:
+    name: user-service
+  config:
+    import: optional:configserver:http://${CONFIG_URL:localhost:8762}
+  liquibase:
+    change-log: classpath:liquibase/changelog.yml
+
+server:
+  port: ${PORT:8081}

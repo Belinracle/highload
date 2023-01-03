@@ -1,0 +1,9 @@
+databaseChangeLog:
+  - changeSet:
+      id: create client file Table
+      author: belinracle
+      changes:
+        - sqlFile:
+            dbms: postgresql
+            path: initial/client_file_table.sql
+            relativeToChangelogFile: true

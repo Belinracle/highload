@@ -1,0 +1,17 @@
+server:
+  port: ${PORT:8762}
+spring:
+  application:
+    name: config-service
+  profiles:
+    active: native
+  cloud:
+    config:
+      server:
+        native:
+          searchLocations: classpath:/config
+
+eureka:
+  client:
+    serviceUrl:
+      defaultZone: http://${EUREKA_ADDRESS:localhost:8671}/eureka
