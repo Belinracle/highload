@@ -112,8 +112,9 @@ services:
       - user-service
       - config-service
       - shared_lib
-  file_minio:
+  fileminio:
     image: minio/minio
+    container_name: fileminio
     ports:
       - "9010:9000"
       - "9001:9001"
@@ -133,7 +134,7 @@ services:
       PORT: 8090
       EUREKA_ADDRESS: "eureka-server:8671"
       CONFIG_URL: "config-service:8762"
-      POSTGRES_ADDRESS: "postgres_users:5432"
+      POSTGRES_ADDRESS: "postgres_file:5432"
     deploy:
       restart_policy:
         condition: on-failure

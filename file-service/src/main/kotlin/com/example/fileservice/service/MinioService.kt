@@ -1,75 +1,79 @@
 package com.example.fileservice.service
 
+import com.example.fileservice.dto.FileDto
 import com.example.fileservice.dto.UploadResponse
-import io.minio.GetObjectArgs
-import io.minio.MinioClient
-import io.minio.PutObjectArgs
-import io.minio.UploadObjectArgs
-import io.minio.messages.Bucket
+import io.minio.*
+import io.minio.messages.Item
 import mu.KotlinLogging
-import org.springframework.beans.factory.annotation.Autowired
 import org.springframework.beans.factory.annotation.Value
 import org.springframework.core.io.InputStreamResource
 import org.springframework.core.io.buffer.DataBuffer
 import org.springframework.http.codec.multipart.FilePart
 import org.springframework.stereotype.Service
-import org.springframework.web.multipart.MultipartFile
-import reactor.core.publisher.Flux
 import reactor.core.publisher.Mono
 import reactor.core.scheduler.Schedulers
-import java.io.File
 import java.io.InputStream
 import java.util.function.BiFunction
 
+
 @Service
-class MinioAdapter(
-    @Autowired
-    var minioClient: MinioClient? = null,
+class MinioService(
+    var minioClient: MinioClient,
 
-    @Value("\${minio.bucket.name}")
+    @Value("\${minio.bucket}")
     var defaultBucketName: String? = null,
-
-    @Value("\${minio.default.folder}")
-    var defaultBaseFolder: String? = null
 ) {
     private val logger = KotlinLogging.logger {}
 
-    private val allBuckets: Flux<Bucket>
-        get() = try {
-            Flux.fromIterable(minioClient!!.listBuckets())
-                .subscribeOn(Schedulers.boundedElastic())
-        } catch (e: Exception) {
-            throw RuntimeException(e.message)
-        }
-
-    fun uploadFile(file: MultipartFile): UploadResponse {
-        val startMillis = System.currentTimeMillis()
-        val temp = File(file.name)
-        temp.canWrite()
-        temp.canRead()
+    fun getListObjects(): List<FileDto>? {
+        val objects: MutableList<FileDto> = ArrayList()
         try {
-            logger.info(temp.absolutePath)
-            // blocking to complete io operation
-            file.transferTo(temp)
-            val uploadObjectArgs = UploadObjectArgs.builder()
-                .bucket(defaultBucketName)
-                .`object`(file.name)
-                .filename(temp.absolutePath)
-                .build()
-            val response = minioClient!!.uploadObject(uploadObjectArgs)
-            temp.delete()
-            logger.info(
-                "upload file execution time {} ms",
-                System.currentTimeMillis() - startMillis
+            val result: Iterable<Result<Item>> = minioClient.listObjects(
+                ListObjectsArgs.builder()
+                    .bucket(defaultBucketName)
+                    .recursive(true)
+                    .build()
             )
-            return UploadResponse(
-                id = response.etag().toString(),
-                bucket = response.bucket(),
-                objectName = response.`object`()
-            )
-        } catch (e: Exception) {
-            throw RuntimeException(e)
+            for (item in result) {
+                objects.add(
+                    FileDto(
+                        filename = item.get().objectName(),
+                        size = item.get().size(),
+                        url = getPreSignedUrl(item.get().objectName())
+                    )
+                )
+            }
+            return objects
+        } catch (e: java.lang.Exception) {
+            logger.error("Happened error when get list objects from minio: ", e)
         }
+        return objects
+    }
+
+    private fun getPreSignedUrl(filename: String): String? {
+        return "http://localhost:8080/file/$filename"
+    }
+
+
+    fun uploadFile(request: FileDto): FileDto? {
+        try {
+            minioClient.putObject(
+                PutObjectArgs.builder()
+                    .bucket(defaultBucketName)
+                    .`object`(request.file!!.originalFilename)
+                    .stream(request.file.inputStream, request.file.size, -1)
+                    .build()
+            )
+        } catch (e: java.lang.Exception) {
+            logger.error("Happened error when upload file: ", e)
+        }
+        return FileDto(
+            title = request.title,
+            description = request.description,
+            size = request.file!!.size,
+            url = getPreSignedUrl(request.file.originalFilename!!),
+            filename = request.file.originalFilename
+        )
     }
 
 

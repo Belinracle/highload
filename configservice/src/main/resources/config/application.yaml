@@ -1,3 +1,8 @@
+eureka:
+  client:
+    serviceUrl:
+      defaultZone: http://${EUREKA_ADDRESS:localhost:8671}/eureka
+
 auth:
   service:
     app:

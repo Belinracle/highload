@@ -5,7 +5,7 @@ spring:
       sql:
         enabled: false
   datasource:
-    url: jdbc:postgresql://postgres_file:5434/file_service
+    url: jdbc:postgresql://${POSTGRES_ADDRESS:localhost:5434}/file_service
     username: postgres
     password: postgres_password
     hikari:
@@ -15,12 +15,14 @@ spring:
   jpa:
     hibernate:
       ddl-auto: none
+  servlet:
+    multipart:
+      max-file-size: 1GB
+      max-request-size: 1GB
+
 minio:
+  url: http://fileminio:9000
+  bucket: my-bucket
   access:
     name: "minio_access_key"
     secret: "minio_secret_key"
-  url: http://file_minio:9010
-  bucket:
-    name: "some_bucket"
-  default:
-    folder: "some_folder"
