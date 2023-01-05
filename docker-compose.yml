@@ -134,7 +134,9 @@ services:
       PORT: 8090
       EUREKA_ADDRESS: "eureka-server:8671"
       CONFIG_URL: "config-service:8762"
-      POSTGRES_ADDRESS: "postgres_file:5432"
+      POSTGRES_HOST: "postgres_file"
+      POSTGRES_PORT: "5432"
+      POSTGRES_DATABASE: "file_service"
     deploy:
       restart_policy:
         condition: on-failure

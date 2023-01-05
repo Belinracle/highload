@@ -1,16 +1,27 @@
 package com.example.fileservice.model
 
-import javax.persistence.*;
+import com.example.fileservice.dto.FileDto
+import org.springframework.data.annotation.Id
+import org.springframework.data.relational.core.mapping.Table
+import java.util.*
 
-@Entity
 @Table(name = "clientfile")
 data class ClientFile(
     @Id
-    @GeneratedValue(strategy = GenerationType.IDENTITY)
     var id: Long? = null,
-
-    @Column(name = "useremail")
-    var userEmail: String,
-    @Column(name = "filename")
-    var filename: String
-)
+    var owner: String? = null,
+    var fileIndex: UUID? = null,
+    var filename: String? = null,
+    var size: Long? = null,
+    var title: String? = null,
+    var description: String? = null,
+){
+    fun toDTO() = FileDto(
+        id = id,
+        filename = filename,
+        size = size,
+        title = title,
+        owner = owner,
+        description = description
+    )
+}

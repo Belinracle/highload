@@ -4,14 +4,14 @@ spring:
     gcp:
       sql:
         enabled: false
-  datasource:
-    url: jdbc:postgresql://${POSTGRES_ADDRESS:localhost:5434}/file_service
+  liquibase:
+    url: r2dbc:postgresql://${POSTGRES_HOST:localhost}:${POSTGRES_PORT:5433}/file_service
+  r2dbc:
+    host: ${POSTGRES_HOST:localhost}
+    port: ${POSTGRES_PORT:5433}
+    database: ${POSTGRES_DATABASE:file_service}
     username: postgres
     password: postgres_password
-    hikari:
-      maximumPoolSize: 5
-      connection-timeout: 20000
-    driver-class-name: org.postgresql.Driver
   jpa:
     hibernate:
       ddl-auto: none
