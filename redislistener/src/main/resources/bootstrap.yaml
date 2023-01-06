@@ -1,0 +1,8 @@
+spring:
+  application:
+    name: redis_listener
+  config:
+    import: optional:configserver:http://${CONFIG_URL:localhost:8762}
+
+server:
+  port: ${PORT:8091}
