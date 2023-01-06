@@ -9,3 +9,8 @@ auth:
       name: "auth-service"
     context:
       path: "/api/auth"
+spring:
+  redis:
+    host: ${REDIS_HOST:localhost}
+    port: ${REDIS_PORT:6379}
+    topic: ${REDIS_TOPIC:default_topic}

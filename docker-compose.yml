@@ -45,10 +45,15 @@ services:
     ports:
       - "5434:5432"
     restart: unless-stopped
+  redis-server:
+    container_name: redisserver
+    image: redis:6.2-alpine
+    ports:
+      - "6379:6379"
   shared_lib:
     container_name: shared_lib
     image: shared_lib
-    build: ./feign_clients
+    build: ./shared_lib
   eureka-server:
     container_name: eureka-service
     image: eurekaserviceimage
@@ -137,6 +142,9 @@ services:
       POSTGRES_HOST: "postgres_file"
       POSTGRES_PORT: "5432"
       POSTGRES_DATABASE: "file_service"
+      REDIS_HOST: "redis-server"
+      REDIS_PORT: "6379"
+      REDIS_TOPIC: "file_topic"
     deploy:
       restart_policy:
         condition: on-failure
@@ -145,3 +153,38 @@ services:
     depends_on:
       - config-service
       - postgres_users
+  notification-service:
+    image: notificatioserviceimage
+    container_name: notificationservice
+    build: ./notification-service
+    ports:
+      - "8092:8092"
+    environment:
+      PORT: 8092
+      CONFIG_URL: "config-service:8762"
+      EUREKA_ADDRESS: "eureka-server:8671"
+    deploy:
+      restart_policy:
+        condition: on-failure
+        max_attempts: 3
+        delay: 3s
+  redis_listener:
+    image: redislistenerimage
+    container_name: redislistener
+    build: ./redislistener
+    ports:
+      - "8091:8091"
+    environment:
+      PORT: 8091
+      CONFIG_URL: "config-service:8762"
+      REDIS_HOST: "redis-server"
+      REDIS_PORT: "6379"
+      REDIS_TOPIC: "file_topic"
+    deploy:
+      restart_policy:
+        condition: on-failure
+        max_attempts: 3
+        delay: 3s
+    depends_on:
+      - config-service
+      - redis-server

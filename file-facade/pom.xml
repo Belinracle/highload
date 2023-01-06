@@ -50,7 +50,7 @@
     </dependency>
     <dependency>
       <groupId>com.itmo.highload</groupId>
-      <artifactId>feign</artifactId>
+      <artifactId>shared_lib</artifactId>
       <version>2</version>
     </dependency>
     <dependency>
