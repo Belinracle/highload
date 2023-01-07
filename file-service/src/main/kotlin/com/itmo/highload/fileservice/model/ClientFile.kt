@@ -1,6 +1,6 @@
 package com.itmo.highload.fileservice.model
 
-import com.itmo.highload.fileservice.dto.FileDto
+import com.itmo.highload.notifications.dto.FileDto
 import org.springframework.data.annotation.Id
 import org.springframework.data.relational.core.mapping.Table
 import java.util.*

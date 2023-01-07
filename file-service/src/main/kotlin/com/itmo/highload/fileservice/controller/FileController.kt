@@ -1,17 +1,20 @@
 package com.itmo.highload.fileservice.controller
 
-import com.itmo.highload.fileservice.dto.FileDto
+import com.google.gson.Gson
 import com.itmo.highload.fileservice.model.ClientFile
 import com.itmo.highload.fileservice.repository.ClientFileRepository
 import com.itmo.highload.fileservice.service.MinioService
+import com.itmo.highload.notifications.dto.FileDto
+import com.itmo.highload.notifications.dto.Notification
+import com.itmo.highload.notifications.dto.NotificationType
 import com.itmo.highload.redis.publisher.RedisPublisher
 import mu.KotlinLogging
 import org.springframework.core.io.InputStreamResource
 import org.springframework.http.HttpHeaders
 import org.springframework.http.MediaType
 import org.springframework.http.ResponseEntity
+import org.springframework.http.codec.multipart.FilePart
 import org.springframework.web.bind.annotation.*
-import org.springframework.web.multipart.MultipartFile
 import reactor.core.publisher.Flux
 import reactor.core.publisher.Mono
 import reactor.core.scheduler.Schedulers
@@ -22,27 +25,49 @@ import java.util.*
 class FileController(
     var minioService: MinioService,
     val clientFileRepository: ClientFileRepository,
-    val redisPublisher: RedisPublisher
+    val redisPublisher: RedisPublisher,
 ) {
     private val logger = KotlinLogging.logger {}
+    val gson = Gson()
+
+    fun FileDto.toClientFile() = ClientFile(
+        description = description,
+        filename = filename,
+        size = size,
+        title = title,
+        owner = owner,
+    )
 
     @PostMapping("/upload")
     fun send(
-        @ModelAttribute("fileDTO") fileDto: FileDto,
-        @RequestParam("file") request: MultipartFile
+        @RequestPart("owner") owner: String,
+        @RequestPart("filename") filename: String,
+        @RequestPart("file") request: Mono<FilePart>
     ): Mono<ResponseEntity<FileDto>> {
+        val fileDto = FileDto(owner = owner, filename = filename)
         logger.info { "uploading file for user $fileDto" }
         val fileIndex = UUID.randomUUID()
         val clientFile: ClientFile = fileDto.toClientFile()
         clientFile.fileIndex = fileIndex
         return clientFileRepository.save(clientFile).flatMap { savedFileInfo ->
-            minioService.uploadFile(Mono.just(request), savedFileInfo)
+            minioService.upload(request, savedFileInfo)
                 .publishOn(Schedulers.boundedElastic())
                 .doOnSuccess {
-                    redisPublisher.publish("file uploaded")
-                        .subscribe { response -> logger.info { "published redis message to $response " } }
+                    redisPublisher.publish(generateNotificationJson(it))
+                        .subscribe { response -> logger.info { "published redis message to $response listeners" } }
                 }
         }.map { result -> ResponseEntity.ok().body(result) }
+    }
+
+    private fun generateNotificationJson(fileDto: FileDto): String {
+        return gson.toJson(
+            Notification<FileDto>(
+                destination = fileDto.owner!!,
+                notificationType = NotificationType.FILE_UPLOADED,
+                body = fileDto,
+                time = System.currentTimeMillis(),
+            )
+        )
     }
 
     @GetMapping("/filename")

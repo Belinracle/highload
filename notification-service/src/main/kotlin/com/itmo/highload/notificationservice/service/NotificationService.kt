@@ -8,22 +8,29 @@ import org.springframework.stereotype.Service
 @Service
 class NotificationService(
     val simpMessagingTemplate: SimpMessagingTemplate,
-    val simpUserRegistry: SimpUserRegistry
+    val simpUserRegistry: SimpUserRegistry,
+    val accumulator: NotificationAccumulator
 ) {
     fun handleNewNotification(username: String, notification: String): String {
-        return try {
+        return if (getConnectedUsers().map { simpUser -> simpUser.name }
+                .contains(username)) {
             simpMessagingTemplate.convertAndSendToUser(
                 username,
                 "queue/notifications",
                 notification
             )
             "Successfully sent message to $username"
-        } catch (e: Exception) {
-            "Error while sending notification to $username with error $e"
+        } else {
+            accumulator.cacheNotification(username, notification)
+            "User $username is currently not connected. Cached notification"
         }
     }
 
-    fun getConnectedUsers():Set<SimpUser>{
+    fun getConnectedUsers(): Set<SimpUser> {
         return simpUserRegistry.users
+    }
+
+    fun getStoredNotifications(username: String): List<String> {
+        return accumulator.getAndClear(username) ?: emptyList()
     }
 }

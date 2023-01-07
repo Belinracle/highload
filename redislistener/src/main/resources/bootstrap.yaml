@@ -1,6 +1,6 @@
 spring:
   application:
-    name: redis_listener
+    name: redis-listener
   config:
     import: optional:configserver:http://${CONFIG_URL:localhost:8762}
 

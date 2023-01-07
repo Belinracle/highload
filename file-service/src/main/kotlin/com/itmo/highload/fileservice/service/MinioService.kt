@@ -1,8 +1,8 @@
 package com.itmo.highload.fileservice.service
 
-import com.itmo.highload.fileservice.dto.FileDto
 import com.itmo.highload.fileservice.dto.UploadResponse
 import com.itmo.highload.fileservice.model.ClientFile
+import com.itmo.highload.notifications.dto.FileDto
 import io.minio.*
 import io.minio.messages.Item
 import mu.KotlinLogging
@@ -14,8 +14,8 @@ import org.springframework.stereotype.Service
 import org.springframework.web.multipart.MultipartFile
 import reactor.core.publisher.Mono
 import reactor.core.scheduler.Schedulers
+import java.io.File
 import java.io.InputStream
-import java.util.function.BiFunction
 
 
 @Service
@@ -70,6 +70,34 @@ class MinioService(
             .log()
     }
 
+    fun upload(file: Mono<FilePart>, clientFile: ClientFile): Mono<FileDto> {
+        return file.subscribeOn(Schedulers.boundedElastic()).map { multipartFile ->
+            val startMillis = System.currentTimeMillis();
+            val temp = File(clientFile.fileIndex.toString());
+            temp.canWrite();
+            temp.canRead();
+            try {
+                println(temp.absolutePath)
+                // blocking to complete io operation
+                multipartFile.transferTo(temp).block()
+                val uploadObjectArgs = UploadObjectArgs.builder()
+                    .bucket(defaultBucketName)
+                    .`object`(clientFile.fileIndex.toString())
+                    .filename(temp.absolutePath)
+                    .build()
+                val response = minioClient.uploadObject(uploadObjectArgs)
+                temp.delete()
+                logger.info(
+                    "upload file execution time {} ms",
+                    System.currentTimeMillis() - startMillis
+                )
+                clientFile.toDTO()
+            } catch (e: java.lang.Exception) {
+                throw RuntimeException(e)
+            }
+
+        }.log();
+    }
 
     fun download(name: String?): Mono<InputStreamResource> {
         return Mono.fromCallable {

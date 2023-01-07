@@ -11,7 +11,7 @@ class NotificationController(
 ) {
     private val logger = KotlinLogging.logger {}
 
-    @PostMapping("/{username}")
+    @PostMapping("/user/{username}")
     fun authenticate(
         @PathVariable username: String,
         @RequestBody notification: String
@@ -20,8 +20,13 @@ class NotificationController(
         return notificationService.handleNewNotification(username, notification)
     }
 
-    @GetMapping("/allUsers")
+    @GetMapping("/user")
     fun checkUsers(): String {
         return notificationService.getConnectedUsers().toString()
+    }
+
+    @GetMapping("/user/{username}")
+    fun checkUsers(@PathVariable username: String): List<String> {
+        return notificationService.getStoredNotifications(username)
     }
 }

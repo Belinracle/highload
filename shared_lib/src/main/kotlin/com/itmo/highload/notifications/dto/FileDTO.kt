@@ -1,6 +1,5 @@
-package com.itmo.highload.fileservice.dto
+package com.itmo.highload.notifications.dto
 
-import com.itmo.highload.fileservice.model.ClientFile
 import com.fasterxml.jackson.annotation.JsonInclude
 import com.fasterxml.jackson.databind.PropertyNamingStrategies
 import com.fasterxml.jackson.databind.annotation.JsonNaming
@@ -16,12 +15,4 @@ data class FileDto(
     val size: Long? = null,
     val title: String? = null,
     val description: String? = null
-) : Serializable {
-    fun toClientFile() = ClientFile(
-        description = description,
-        filename = filename,
-        size = size,
-        title = title,
-        owner = owner,
-    )
-}
+) : Serializable

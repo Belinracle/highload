@@ -180,6 +180,7 @@ services:
       REDIS_HOST: "redis-server"
       REDIS_PORT: "6379"
       REDIS_TOPIC: "file_topic"
+      EUREKA_ADDRESS: "eureka-server:8671"
     deploy:
       restart_policy:
         condition: on-failure

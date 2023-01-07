@@ -9,6 +9,27 @@ auth:
       name: "auth-service"
     context:
       path: "/api/auth"
+
+notification:
+  service:
+    app:
+      name: "notification-service"
+    context:
+      path: "/api/notification"
+
+medication:
+  service:
+    app:
+      name: "medication-service"
+    context:
+      path: "/api/medication"
+
+user:
+  service:
+    app:
+      name: "${USER_SERVICE_APP_NAME:user-service}"
+    context:
+      path: "${USER_SERVICE_CONTEXT_PATH:/api/user}"
 spring:
   redis:
     host: ${REDIS_HOST:localhost}

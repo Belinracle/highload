@@ -27,10 +27,3 @@ refresh:
     duration:
       ms: 600000
 
-user:
-  service:
-    app:
-      name: "${USER_SERVICE_APP_NAME:user-service}"
-    context:
-      path: "${USER_SERVICE_CONTEXT_PATH:/api/user}"
-
