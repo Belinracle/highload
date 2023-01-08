@@ -71,29 +71,31 @@ class MinioService(
     }
 
     fun upload(file: Mono<FilePart>, clientFile: ClientFile): Mono<FileDto> {
-        return file.subscribeOn(Schedulers.boundedElastic()).map { multipartFile ->
+        logger.info { "uploading file $clientFile" }
+        return file.subscribeOn(Schedulers.boundedElastic()).flatMap { multipartFile ->
             val startMillis = System.currentTimeMillis();
             val temp = File(clientFile.fileIndex.toString());
             temp.canWrite();
             temp.canRead();
             try {
-                println(temp.absolutePath)
+                println("absolute path " + temp.absolutePath)
                 // blocking to complete io operation
-                multipartFile.transferTo(temp).block()
-                val uploadObjectArgs = UploadObjectArgs.builder()
-                    .bucket(defaultBucketName)
-                    .`object`(clientFile.fileIndex.toString())
-                    .filename(temp.absolutePath)
-                    .build()
-                val response = minioClient.uploadObject(uploadObjectArgs)
-                temp.delete()
-                logger.info(
-                    "upload file execution time {} ms",
-                    System.currentTimeMillis() - startMillis
-                )
-                clientFile.toDTO()
+                multipartFile.transferTo(temp).doOnSuccess {
+                    val uploadObjectArgs = UploadObjectArgs.builder()
+                        .bucket(defaultBucketName)
+                        .`object`(clientFile.fileIndex.toString())
+                        .filename(temp.absolutePath)
+                        .build()
+                    val response = minioClient.uploadObject(uploadObjectArgs)
+                    temp.delete()
+                    logger.info(
+                        "upload file execution time {} ms",
+                        System.currentTimeMillis() - startMillis
+                    )
+                }.thenReturn(clientFile.toDTO())
+
             } catch (e: java.lang.Exception) {
-                throw RuntimeException(e)
+                return@flatMap Mono.error(RuntimeException(e))
             }
 
         }.log();
