@@ -10,14 +10,22 @@ import org.springframework.context.annotation.Bean
 import org.springframework.context.annotation.Primary
 import org.springframework.http.converter.json.GsonHttpMessageConverter
 import org.springframework.stereotype.Component
+import org.springframework.beans.factory.annotation.Value
+import org.springframework.data.redis.listener.ChannelTopic
 
 @Component
 @Primary
 class FileNotificationListener(
-    val notificationClient: NotificationClient
+    val notificationClient: NotificationClient,
+    @Value("\${spring.redis.topic}")
+    var redisTopic: String
 ) : MessageListener {
     private val logger = KotlinLogging.logger {}
     val gson = Gson()
+
+    override fun getListenableTopic(): ChannelTopic {
+        return ChannelTopic(redisTopic)
+    }
 
     override fun messageReceived(message: String) {
         logger.info { "handling message $message" }

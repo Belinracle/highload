@@ -9,16 +9,20 @@ import com.itmo.highload.notifications.dto.Notification
 import com.itmo.highload.notifications.dto.NotificationType
 import com.itmo.highload.redis.publisher.RedisPublisher
 import mu.KotlinLogging
+import org.springframework.beans.factory.annotation.Value
 import org.springframework.core.io.InputStreamResource
 import org.springframework.http.HttpHeaders
 import org.springframework.http.MediaType
 import org.springframework.http.ResponseEntity
 import org.springframework.http.codec.multipart.FilePart
+import org.springframework.http.codec.multipart.FormFieldPart
+import org.springframework.http.codec.multipart.Part
 import org.springframework.web.bind.annotation.*
 import reactor.core.publisher.Flux
 import reactor.core.publisher.Mono
 import reactor.core.scheduler.Schedulers
 import java.util.*
+import javax.ws.rs.QueryParam
 
 @RestController
 @RequestMapping("api/file")
@@ -26,6 +30,8 @@ class FileController(
     var minioService: MinioService,
     val clientFileRepository: ClientFileRepository,
     val redisPublisher: RedisPublisher,
+    @Value("\${spring.redis.topic}")
+    var redisTopic: String
 ) {
     private val logger = KotlinLogging.logger {}
     val gson = Gson()
@@ -40,23 +46,32 @@ class FileController(
 
     @PostMapping("/upload")
     fun send(
-        @RequestPart("owner") owner: String,
-        @RequestPart("filename") filename: String,
+        @RequestPart("owner") owner: FormFieldPart,
+        @RequestPart("filename") filename: FormFieldPart,
         @RequestPart("file") request: Mono<FilePart>
     ): Mono<ResponseEntity<FileDto>> {
-        val fileDto = FileDto(owner = owner, filename = filename)
-        logger.info { "uploading file for user $fileDto" }
-        val fileIndex = UUID.randomUUID()
-        val clientFile: ClientFile = fileDto.toClientFile()
-        clientFile.fileIndex = fileIndex
-        return clientFileRepository.save(clientFile).flatMap { savedFileInfo ->
-            minioService.upload(request, savedFileInfo)
-                .publishOn(Schedulers.boundedElastic())
-                .doOnSuccess {
-                    redisPublisher.publish(generateNotificationJson(it))
-                        .subscribe { response -> logger.info { "published redis message to $response listeners" } }
+        return clientFileRepository.findByOwner(owner.value()).collectList()
+            .flatMap { clientsFiles ->
+                if (clientsFiles.map { clientFile -> clientFile.filename }.contains(filename.value())) {
+                    return@flatMap Mono.just(
+                        ResponseEntity.badRequest().body(FileDto(filename = "some shit"))
+                    )
+                } else {
+                    val fileDto = FileDto(owner = owner.value(), filename = filename.value())
+                    logger.info { "uploading file for user $fileDto" }
+                    val fileIndex = UUID.randomUUID()
+                    val clientFile: ClientFile = fileDto.toClientFile()
+                    clientFile.fileIndex = fileIndex
+                    clientFileRepository.save(clientFile).flatMap { savedFileInfo ->
+                        minioService.upload(request, savedFileInfo)
+                            .publishOn(Schedulers.boundedElastic())
+                            .doOnSuccess {
+                                redisPublisher.publish(redisTopic, generateNotificationJson(it))
+                                    .subscribe { response -> logger.info { "published redis message to $response listeners" } }
+                            }
+                    }.map { result -> ResponseEntity.ok().body(result) }
                 }
-        }.map { result -> ResponseEntity.ok().body(result) }
+            }
     }
 
     private fun generateNotificationJson(fileDto: FileDto): String {
@@ -73,14 +88,13 @@ class FileController(
     @GetMapping("/filename")
     fun download(
         @RequestParam(value = "filename") fileName: String
-    ): Mono<ResponseEntity<InputStreamResource>> {
-        return minioService.download(fileName).map { iss ->
-            ResponseEntity.ok()
-                .header(HttpHeaders.CONTENT_DISPOSITION, "attachment; filename=$fileName")
-                .header(HttpHeaders.CONTENT_TYPE, MediaType.APPLICATION_OCTET_STREAM_VALUE)
-                .body(iss)
-        }
+    ): ResponseEntity<InputStreamResource> {
+        return ResponseEntity.ok()
+            .header(HttpHeaders.CONTENT_DISPOSITION, "attachment; filename=$fileName")
+            .header(HttpHeaders.CONTENT_TYPE, MediaType.APPLICATION_OCTET_STREAM_VALUE)
+            .body(minioService.download(fileName))
     }
+
 
     @GetMapping("/all")
     fun getFiles(): ResponseEntity<Any?>? {

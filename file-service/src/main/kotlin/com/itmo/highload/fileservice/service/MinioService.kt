@@ -79,7 +79,6 @@ class MinioService(
             temp.canRead();
             try {
                 println("absolute path " + temp.absolutePath)
-                // blocking to complete io operation
                 multipartFile.transferTo(temp).doOnSuccess {
                     val uploadObjectArgs = UploadObjectArgs.builder()
                         .bucket(defaultBucketName)
@@ -101,14 +100,13 @@ class MinioService(
         }.log();
     }
 
-    fun download(name: String?): Mono<InputStreamResource> {
-        return Mono.fromCallable {
-            val response: InputStream = minioClient.getObject(
-                GetObjectArgs.builder().bucket(defaultBucketName).`object`(name).build()
-            )
-            InputStreamResource(response)
-        }.subscribeOn(Schedulers.boundedElastic())
+    fun download(name: String): InputStreamResource {
+        val response: InputStream = minioClient.getObject(
+            GetObjectArgs.builder().bucket(defaultBucketName).`object`(name).build()
+        )
+        return InputStreamResource(response)
     }
+
 
     fun putObject(file: FilePart): Mono<UploadResponse> {
         return file.content()

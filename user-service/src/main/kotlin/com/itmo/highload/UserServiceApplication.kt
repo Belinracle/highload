@@ -3,10 +3,8 @@ package com.itmo.highload
 import org.springframework.boot.autoconfigure.SpringBootApplication
 import org.springframework.boot.runApplication
 import org.springframework.cloud.netflix.eureka.EnableEurekaClient
-import org.springframework.data.web.config.EnableSpringDataWebSupport
 
 @SpringBootApplication(scanBasePackages = ["com.itmo.highload.userservice","com.itmo.highload.feign"])
-@EnableSpringDataWebSupport
 @EnableEurekaClient
 class UserServiceApplication
 
