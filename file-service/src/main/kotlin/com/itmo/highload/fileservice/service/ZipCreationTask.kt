@@ -2,7 +2,9 @@ package com.itmo.highload.fileservice.service
 
 import com.itmo.highload.fileservice.model.ClientFile
 import kotlinx.coroutines.*
+import kotlinx.coroutines.future.await
 import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
 import mu.KotlinLogging
 import org.springframework.core.io.InputStreamResource
 import java.io.IOException
@@ -21,18 +23,18 @@ class ZipCreationTask(
 
     @OptIn(DelicateCoroutinesApi::class)
     private val context: CoroutineContext = newSingleThreadContext("Single thread")
-    suspend fun execute() = coroutineScope{
+    suspend fun execute() = coroutineScope {
         logger.info { "handling creation zip for files $clientFiles" }
         val jobs = mutableListOf<Job>()
         for (clientFile in clientFiles) {
             jobs.add(launch(context = context) { handleOneFile(clientFile) })
         }
         jobs.joinAll()
+
         logger.info { "all coroutines finished" }
     }
 
     private suspend fun handleOneFile(clientFile: ClientFile) {
-//        delay(1000)
         logger.info { "start handling file $clientFile in ${Thread.currentThread().name}" }
         val isr = getObjectFromMinio(clientFile.fileIndex.toString())
         logger.info { "got object from minio, start filling zip with $clientFile" }
@@ -40,19 +42,26 @@ class ZipCreationTask(
         logger.info { "finished handling file $clientFile" }
     }
 
-    private fun getObjectFromMinio(filename: String): InputStreamResource {
-        return minioService.download(filename)
+    private suspend fun getObjectFromMinio(filename: String): InputStreamResource {
+        return minioService.downloadAsync(filename).await()
     }
 
     private suspend fun fillZip(filename: String, isr: InputStreamResource) {
         val zipEntry = ZipEntry(filename)
+        logger.info { "filling zip with file $filename with isr $isr" }
         try {
-            zipOutputStream.putNextEntry(zipEntry)
-            val bytes = ByteArray(1024)
-            var length: Int
-            val istr = isr.inputStream
-            while (istr.read(bytes).also { length = it } >= 0) {
-                zipOutputStream.write(bytes, 0, length)
+            withContext(Dispatchers.IO) {
+                val bytes = ByteArray(1024)
+                var length: Int
+                val istr = isr.inputStream
+                logger.info { "filling zip with mutex for file  $filename" }
+                mutex.withLock {
+                    zipOutputStream.putNextEntry(zipEntry)
+                    while (istr.read(bytes).also { length = it } >= 0) {
+                        zipOutputStream.write(bytes, 0, length)
+                    }
+                    zipOutputStream.closeEntry();
+                }
             }
         } catch (ignored: IOException) {
             logger.error { "Some error $ignored" }

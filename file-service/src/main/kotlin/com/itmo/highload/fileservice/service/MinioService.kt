@@ -5,6 +5,10 @@ import com.itmo.highload.fileservice.model.ClientFile
 import com.itmo.highload.notifications.dto.FileDto
 import io.minio.*
 import io.minio.messages.Item
+import kotlinx.coroutines.*
+import kotlinx.coroutines.future.await
+import kotlinx.coroutines.reactive.awaitFirstOrNull
+import kotlinx.coroutines.reactor.awaitSingle
 import mu.KotlinLogging
 import org.springframework.beans.factory.annotation.Value
 import org.springframework.core.io.InputStreamResource
@@ -16,11 +20,13 @@ import reactor.core.publisher.Mono
 import reactor.core.scheduler.Schedulers
 import java.io.File
 import java.io.InputStream
+import java.util.concurrent.CompletableFuture
 
 
 @Service
 class MinioService(
     var minioClient: MinioClient,
+    var minioAsyncClient: MinioAsyncClient,
 
     @Value("\${minio.bucket}")
     var defaultBucketName: String? = null,
@@ -70,6 +76,37 @@ class MinioService(
             .log()
     }
 
+    suspend fun uploadAsync(file: FilePart, clientFile: ClientFile): FileDto  {
+        logger.info { "uploading file async $clientFile" }
+            val startMillis = System.currentTimeMillis();
+            val temp = File(clientFile.fileIndex.toString());
+            temp.canWrite();
+            temp.canRead();
+            try {
+                println("absolute path " + temp.absolutePath)
+                file.transferTo(temp).awaitFirstOrNull().let {
+                    logger.info { "transferred" }
+                    val uploadObjectArgs = UploadObjectArgs.builder()
+                        .bucket(defaultBucketName)
+                        .`object`(clientFile.fileIndex.toString())
+                        .filename(temp.absolutePath)
+                        .build()
+                    logger.info { "uploading" }
+                    minioAsyncClient.uploadObject(uploadObjectArgs).await()
+                    logger.info { "uploaded" }
+                    temp.delete()
+                    logger.info(
+                        "upload file execution time {} ms",
+                        System.currentTimeMillis() - startMillis
+                    )
+                }
+            }catch (e:Exception){
+                logger.error { "some shit happened $e" }
+            }
+        return clientFile.toDTO()
+    }
+
+
     fun upload(file: Mono<FilePart>, clientFile: ClientFile): Mono<FileDto> {
         logger.info { "uploading file $clientFile" }
         return file.subscribeOn(Schedulers.boundedElastic()).flatMap { multipartFile ->
@@ -105,6 +142,11 @@ class MinioService(
             GetObjectArgs.builder().bucket(defaultBucketName).`object`(name).build()
         )
         return InputStreamResource(response)
+    }
+    fun downloadAsync(name: String): CompletableFuture<InputStreamResource> {
+        return minioAsyncClient.getObject(
+            GetObjectArgs.builder().bucket(defaultBucketName).`object`(name).build()
+        ).thenApply { ins->InputStreamResource(ins) }
     }
 
 

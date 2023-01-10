@@ -1,6 +1,8 @@
 package com.itmo.highload.fileservice.controller
 
 import com.itmo.highload.fileservice.service.ZipService
+import kotlinx.coroutines.async
+import kotlinx.coroutines.runBlocking
 import mu.KotlinLogging
 import org.springframework.http.ResponseEntity
 import org.springframework.web.bind.annotation.*
@@ -12,13 +14,13 @@ class ZipController(val zipService: ZipService) {
     private val logger = KotlinLogging.logger {}
 
     @PostMapping("/prepare")
-    fun prepare(
+    suspend fun prepare(
         @RequestParam("owner") owner: String,
         @RequestParam("zipname") zipname: String
-    ): ResponseEntity<String> {
-        zipService.createZip(owner, zipname)
+    ): ResponseEntity<String>  = runBlocking{
+        async { zipService.createZip(owner, zipname)}
         logger.info{ "запрос на создание зипа обработан"}
-        return ResponseEntity.ok("все ок")
+        return@runBlocking ResponseEntity.ok("все ок")
     }
 
 }
