@@ -30,7 +30,10 @@ class ZipCreationTask(
             jobs.add(launch(context = context) { handleOneFile(clientFile) })
         }
         jobs.joinAll()
-
+        withContext(Dispatchers.IO) {
+            logger.info { "close zos" }
+            zipOutputStream.close()
+        }
         logger.info { "all coroutines finished" }
     }
 
@@ -60,7 +63,7 @@ class ZipCreationTask(
                     while (istr.read(bytes).also { length = it } >= 0) {
                         zipOutputStream.write(bytes, 0, length)
                     }
-                    zipOutputStream.closeEntry();
+                    zipOutputStream.closeEntry()
                 }
             }
         } catch (ignored: IOException) {

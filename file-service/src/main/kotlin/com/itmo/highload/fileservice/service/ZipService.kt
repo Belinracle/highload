@@ -25,24 +25,30 @@ class ZipService(
 ) {
     private val logger = KotlinLogging.logger {}
 
-    suspend fun zipCreationThread(username: String,zipName: String)= coroutineScope {
-            val clientFiles: List<ClientFile> = clientFileRepository.findByOwner(username).collectList().awaitSingle()
-            logger.info { "fetched clientFiles $clientFiles" }
-            val byteArrayOutputStream = ByteArrayOutputStream()
-            val zipOutputStream = ZipOutputStream(byteArrayOutputStream)
-            ZipCreationTask(zipOutputStream, minioService, clientFiles).execute()
+    suspend fun zipCreationThread(username: String, zipName: String) = coroutineScope {
+        val clientFiles: List<ClientFile> =
+            clientFileRepository.findByOwner(username).collectList().awaitSingle()
+        logger.info { "fetched clientFiles $clientFiles" }
+        val byteArrayOutputStream = ByteArrayOutputStream()
+        val zipOutputStream = ZipOutputStream(byteArrayOutputStream)
+        ZipCreationTask(zipOutputStream, minioService, clientFiles).execute()
         val fullFileName = "$zipName.zip"
         logger.info("writing zip file with baos ${byteArrayOutputStream.toByteArray().size}")
         minioAsyncClient.putObject(
             PutObjectArgs.builder().bucket("my-bucket").`object`(fullFileName).stream(
-            ByteArrayInputStream(byteArrayOutputStream.toByteArray()), byteArrayOutputStream.toByteArray().size.toLong(), -1)
-         .build()).await()
+                ByteArrayInputStream(byteArrayOutputStream.toByteArray()),
+                byteArrayOutputStream.toByteArray().size.toLong(),
+                -1
+            )
+                .build()
+        ).await()
     }
-    suspend fun createZip(username: String, zipName: String) = runBlocking{
-        logger.info { "fetching files for client $username"}
-            launch {
-                zipCreationThread(username,zipName)
-            }
-        logger.info { "aaaaaaaaaaaaaaaaaaaaaaaaaa $username"}
+
+    suspend fun createZip(username: String, zipName: String) = runBlocking {
+        logger.info { "fetching files for client $username" }
+        launch {
+            zipCreationThread(username, zipName)
         }
+        logger.info { "aaaaaaaaaaaaaaaaaaaaaaaaaa $username" }
+    }
 }
